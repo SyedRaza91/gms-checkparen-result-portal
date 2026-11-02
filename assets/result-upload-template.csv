@@ -1,0 +1,2 @@
+exam_name,academic_year,class_name,roll_number,admission_number,student_name,father_name,subject_marks,remarks
+Annual Examination,2026-27,7th,12,GMS-2026-0712,Student Example,Parent Example,"{""English"":{""obtained"":78,""maximum"":100},""Urdu"":{""obtained"":82,""maximum"":100},""Mathematics"":{""obtained"":75,""maximum"":100}}",Good progress
