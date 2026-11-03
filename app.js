@@ -153,7 +153,7 @@ function showResult(r){
            onerror="this.style.display='none'">
       <h2>GOVERNMENT MIDDLE SCHOOL CHECKPAREN</h2>
       <p>Zone Mawer, District Kupwara, Jammu & Kashmir</p>
-      <h3 style="color:#b18a2c">STUDENT PERFORMANCE REPORT</h3>
+      <h3 style="color:#b18a2c">STUDENT HOLISTIC PROGRESS CARD (HPC)</h3>
     </div>
 
     <div class="sheet-title">
