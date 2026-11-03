@@ -7,6 +7,11 @@
 <div id="tab-overview" class="tabcontent"><div class="stats"><div><b id="studentCount">0</b>Students</div><div><b id="resultCount">0</b>Results</div><div><b id="publishedCount">0</b>Published</div></div><div class="scroll"><table><thead><tr><th>Student</th><th>Class</th><th>Exam</th><th>Roll</th><th>Status</th><th>Action</th></tr></thead><tbody id="adminRows"></tbody></table></div></div>
 <div id="tab-upload" class="tabcontent hidden"><h3>Import marks from Excel or CSV</h3><p>One row per student per examination. Use the template below. Subject marks must be JSON.</p><a href="assets/result-upload-template.xlsx">Excel template</a> · <a href="assets/result-upload-template.csv">CSV template</a><input id="excelFile" type="file" accept=".xlsx,.xls,.csv"><div id="previewWrap" class="hidden"><p id="previewSummary"></p><div class="scroll"><table><thead><tr><th>Student</th><th>Class</th><th>Exam</th><th>Validation</th></tr></thead><tbody id="previewRows"></tbody></table></div><button id="importBtn" class="primary" disabled>Save valid rows</button></div><p id="uploadMessage" class="message"></p></div>
 <div id="tab-exams" class="tabcontent hidden"><form id="examForm" class="grid"><label>Examination<input id="examName" required placeholder="Annual Examination"></label><label>Academic year<input id="examYear" required value="2026-27"></label><button class="primary full">Add examination</button></form><div id="examList"></div></div></section></main>
-<footer>© <span id="year"></span> Government Middle School Checkparen</footer>
+<footer>
+  © <span id="year"></span> Government Middle School Checkparen. All Rights Reserved.
+  <p><strong>PORTAL DEVELOPER & ADMINISTRATOR</strong></p>
+  <p>Syed Ahmad Raza</p>
+  <p>Website Development, Management and Technical Support</p>
+</footer>
 <dialog id="loginDialog"><form id="loginForm"><button type="button" id="closeLogin" class="close">×</button><small>ADMINISTRATOR</small><h2>Secure sign in</h2><label>Email<input id="loginEmail" type="email" required></label><label>Password<input id="loginPassword" type="password" required></label><button class="primary">Sign in</button><p id="loginMessage" class="message"></p></form></dialog>
 <script src="config.js"></script><script src="app.js"></script></body></html>
