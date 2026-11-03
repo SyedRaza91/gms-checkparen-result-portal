@@ -20,6 +20,199 @@ function validate(r,n){let x={...r,line:n,error:""};for(let k of ["exam_name","a
 $("excelFile").onchange=async e=>{try{let f=e.target.files[0];if(!f)return;let w=XLSX.read(await f.arrayBuffer(),{type:"array"});staged=XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]],{defval:""}).map((r,i)=>validate(r,i+2));$("previewWrap").classList.remove("hidden");$("previewSummary").textContent=`${staged.filter(x=>!x.error).length} valid rows, ${staged.filter(x=>x.error).length} rows with errors.`;$("previewRows").innerHTML=staged.slice(0,100).map(x=>`<tr><td>${esc(x.student_name)}</td><td>${esc(x.class_name)}</td><td>${esc(x.exam_name)}</td><td>${esc(x.error||"Ready")}</td></tr>`).join("");$("importBtn").disabled=!staged.some(x=>!x.error)}catch(e){say("uploadMessage","Could not read file: "+e.message)}};
 $("importBtn").onclick=async()=>{let saved=0,errs=[];$("importBtn").disabled=true;for(let x of staged.filter(x=>!x.error)){let {data:ex,error:ee}=await db.from("examinations").select("id").eq("name",String(x.exam_name).trim()).eq("academic_year",String(x.academic_year).trim()).maybeSingle();if(ee){errs.push(`Row ${x.line}: ${ee.message}`);continue}if(!ex){let z=await db.from("examinations").insert({name:String(x.exam_name).trim(),academic_year:String(x.academic_year).trim()}).select("id").single();if(z.error){errs.push(`Row ${x.line}: ${z.error.message}`);continue}ex=z.data}let st=await db.from("students").upsert({admission_number:String(x.admission_number).trim(),student_name:String(x.student_name).trim(),father_name:String(x.father_name).trim(),class_name:String(x.class_name).trim(),roll_number:String(x.roll_number).trim()},{onConflict:"admission_number"}).select("id").single();if(st.error){errs.push(`Row ${x.line}: ${st.error.message}`);continue}let a=Object.values(x.subject_marks).reduce((v,m)=>v+m.obtained,0),b=Object.values(x.subject_marks).reduce((v,m)=>v+m.maximum,0),p=b?+(a/b*100).toFixed(2):0;let z=await db.from("results").upsert({student_id:st.data.id,examination_id:ex.id,subject_marks:x.subject_marks,total_obtained:a,total_maximum:b,percentage:p,grade:grade(p),result_status:p>=33?"Pass":"Needs Improvement",remarks:String(x.remarks||""),is_published:false},{onConflict:"student_id,examination_id"});if(z.error)errs.push(`Row ${x.line}: ${z.error.message}`);else saved++}say("uploadMessage",`Saved ${saved} draft result(s). ${errs.slice(0,4).join(" | ")}`,!errs.length);await refresh()};
 $("lookupForm").onsubmit=async e=>{e.preventDefault();$("resultCard").classList.add("hidden");say("lookupMessage","Searching...",true);if(!db)return say("lookupMessage","Portal configuration is incomplete.");let token=window.turnstile?.getResponse?.()||"";if(!token)return say("lookupMessage","Complete the security verification first.");let {data,error}=await db.functions.invoke("public-result",{body:{class_name:$("publicClass").value,examination_id:$("publicExam").value,search_type:$("searchType").value,search_number:$("searchNumber").value.trim(),turnstile_token:token}});window.turnstile?.reset?.();if(error||!data?.result)return say("lookupMessage",data?.error||"No published result matched those details.");say("lookupMessage","Published result found.",true);showResult(data.result)};
-function showResult(r){let marks=Object.entries(r.subject_marks||[]);$("resultCard").innerHTML=`<button class="primary print" onclick="window.print()">Print marksheet</button><div class="result-head"><small>OFFICIAL STUDENT MARKSHEET</small><h2>Government Middle School Checkparen</h2><p>Zone Mawer · District Kupwara · Jammu & Kashmir</p><h3>${esc(r.exam_name)} · ${esc(r.academic_year)}</h3></div><div class="meta">${[["Student",r.student_name],["Father",r.father_name],["Class",r.class_name],["Roll number",r.roll_number],["Admission number",r.admission_number],["Result",r.result_status]].map(([a,b])=>`<div><small>${a}</small><b>${esc(b)}</b></div>`).join("")}</div><table><thead><tr><th>Subject</th><th>Maximum</th><th>Obtained</th><th>Grade</th></tr></thead><tbody>${marks.map(([s,m])=>`<tr><td>${esc(s)}</td><td>${m.maximum}</td><td>${m.obtained}</td><td>${grade(m.obtained/m.maximum*100)}</td></tr>`).join("")}</tbody></table><div class="totals"><span>Total ${r.total_obtained}/${r.total_maximum}</span><span>${Number(r.percentage).toFixed(2)}%</span><span>Grade ${esc(r.grade)}</span></div><p><b>Remarks:</b> ${esc(r.remarks||"—")}</p><p style="margin-top:35px">Class Teacher __________________ <span style="float:right">Head of Institution __________________</span></p><small>Computer-generated result. Contact the school office for any discrepancy.</small>`;$("resultCard").classList.remove("hidden");$("resultCard").scrollIntoView({behavior:"smooth"})}
+function showResult(r){
+  let marks=Object.entries(r.subject_marks||{});
+  $("resultCard").innerHTML=`
+  <style>
+    .school-sheet{
+      background:#fff;
+      color:#17233b;
+      border:2px solid #183b67;
+      padding:25px;
+      font-family:Arial,sans-serif;
+      max-width:850px;
+      margin:20px auto;
+    }
+    .school-header{
+      text-align:center;
+      border-bottom:4px double #c49a36;
+      padding-bottom:15px;
+    }
+    .school-header img{
+      width:85px;
+      height:85px;
+      object-fit:contain;
+      margin-bottom:8px;
+    }
+    .school-header h2{
+      color:#173d68;
+      margin:5px 0;
+      font-size:25px;
+    }
+    .school-header p{margin:4px;color:#555}
+    .sheet-title{
+      background:#173d68;
+      color:white;
+      padding:12px;
+      text-align:center;
+      margin:18px 0;
+      border-radius:5px;
+    }
+    .student-info{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin:15px 0;
+    }
+    .student-info div{
+      background:#f0f5fb;
+      border-left:4px solid #c49a36;
+      padding:10px;
+    }
+    .student-info small{
+      display:block;
+      color:#667085;
+      margin-bottom:4px;
+    }
+    .school-sheet table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:18px;
+    }
+    .school-sheet th{
+      background:#173d68;
+      color:white;
+      padding:11px;
+    }
+    .school-sheet td{
+      border:1px solid #ccd5e0;
+      padding:10px;
+      text-align:center;
+    }
+    .school-sheet tbody tr:nth-child(even){
+      background:#f0f5fb;
+    }
+    .result-summary{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin-top:18px;
+    }
+    .result-summary div{
+      background:#eaf1f9;
+      border:1px solid #c49a36;
+      padding:13px 5px;
+      text-align:center;
+      border-radius:5px;
+    }
+    .result-summary strong{
+      display:block;
+      color:#173d68;
+      font-size:20px;
+      margin-top:5px;
+    }
+    .signatures{
+      display:flex;
+      justify-content:space-between;
+      margin-top:65px;
+      text-align:center;
+      gap:20px;
+    }
+    .signatures div{
+      width:45%;
+      border-top:1px solid #333;
+      padding-top:8px;
+    }
+    .print{margin-bottom:15px}
+    @media print{
+      body *{visibility:hidden!important}
+      #resultCard,#resultCard *{visibility:visible!important}
+      #resultCard{
+        position:absolute;
+        left:0;
+        top:0;
+        width:100%;
+        margin:0;
+      }
+      .print{display:none!important}
+      .school-sheet{
+        border:2px solid #173d68;
+        margin:0;
+        max-width:none;
+        -webkit-print-color-adjust:exact;
+        print-color-adjust:exact;
+      }
+    }
+  </style>
+
+  <button class="primary print" onclick="window.print()">Print Marksheet</button>
+
+  <div class="school-sheet">
+    <div class="school-header">
+      <img src="/assets/school-logo.jpg" alt="School Logo"
+           onerror="this.style.display='none'">
+      <h2>GOVERNMENT MIDDLE SCHOOL CHECKPAREN</h2>
+      <p>Zone Mawer, District Kupwara, Jammu & Kashmir</p>
+      <h3 style="color:#b18a2c">STUDENT PERFORMANCE REPORT</h3>
+    </div>
+
+    <div class="sheet-title">
+      <h3>${esc(r.exam_name)} - ${esc(r.academic_year)}</h3>
+      <b>OFFICIAL MARKSHEET</b>
+    </div>
+
+    <div class="student-info">
+      ${[
+        ["Student Name",r.student_name],
+        ["Father's Name",r.father_name],
+        ["Class",r.class_name],
+        ["Roll Number",r.roll_number],
+        ["Admission Number",r.admission_number],
+        ["Result Status",r.result_status]
+      ].map(([a,b])=>`<div><small>${a}</small><b>${esc(b)}</b></div>`).join("")}
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>Maximum Marks</th>
+          <th>Marks Obtained</th>
+          <th>Grade</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${marks.map(([s,m])=>`
+          <tr>
+            <td>${esc(s)}</td>
+            <td>${m.maximum}</td>
+            <td>${m.obtained}</td>
+            <td>${grade(m.obtained/m.maximum*100)}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+
+    <div class="result-summary">
+      <div>Total Marks<strong>${r.total_obtained}/${r.total_maximum}</strong></div>
+      <div>Percentage<strong>${Number(r.percentage).toFixed(2)}%</strong></div>
+      <div>Overall Grade<strong>${esc(r.grade)}</strong></div>
+    </div>
+
+    <p style="margin-top:20px"><b>Remarks:</b> ${esc(r.remarks||"—")}</p>
+
+    <div class="signatures">
+      <div>Class Teacher</div>
+      <div>Head of Institution</div>
+    </div>
+
+    <p style="text-align:center;margin-top:25px;color:#777;font-size:11px">
+      Computer-generated marksheet. For any discrepancy, contact the school office.
+    </p>
+  </div>`;
+
+  $("resultCard").classList.remove("hidden");
+  $("resultCard").scrollIntoView({behavior:"smooth"});
+}
 db?.auth.getSession().then(({data})=>{if(data.session){admin=data.session.user;dashboard()}});exams();
 })();
